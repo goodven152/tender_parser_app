@@ -2,8 +2,19 @@ from fastapi import FastAPI, WebSocket, UploadFile, File
 from fastapi.responses import JSONResponse
 from apscheduler.schedulers.background import BackgroundScheduler
 import runner, json, datetime, asyncio, pathlib, os
+from apscheduler.triggers.cron import CronTrigger
 
-app=FastAPI()
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8080"],   # откуда разрешаем
+    allow_credentials=True,                   # если нужны cookies / auth-заголовки
+    allow_methods=["*"],                      # какие HTTP-методы
+    allow_headers=["*"],                      # и какие заголовки принимать
+)
 scheduler=BackgroundScheduler(); scheduler.start()
 
 # -------- ACTIONS ----------------------------------------------------------
@@ -52,10 +63,14 @@ def kw_update(kw: list[str]):
     return {"status":"saved"}
 
 # -------- NEXT SCHEDULE (пример: ежедневно 02:00) -------------------------
-CRON_EXPR="0 2 * * *"  # поменяйте или читайте из env
+CRON_EXPR = "0 2 * * *"             # «каждый день в 02:00»
+
+# заранее создаём триггер из crontab-строки
+_next_trigger = CronTrigger.from_crontab(CRON_EXPR)
 
 def _calc_next_run():
-    return scheduler._create_trigger("cron", expr=CRON_EXPR).get_next_fire_time(None, datetime.datetime.utcnow())
+    # first_fire_time=None → «сейчас»
+    return _next_trigger.get_next_fire_time(None, datetime.datetime.utcnow())
 
 @app.get("/next_run")
 def next_run():
