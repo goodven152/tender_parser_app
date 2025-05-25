@@ -56,7 +56,7 @@ def start_run():
     _current.update({"id": run_id,
                      "started": datetime.datetime.utcnow().isoformat(),
                      "progress": 0})
-    cmd=["python","-m","ge_parser_tenders.cli","--config", str(CONF_PATH)]
+    cmd = ["python", "-m", "ge_parser_tenders.cli", "--config", str(CONF_PATH)]
     proc=subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     threading.Thread(target=_reader, args=(proc, run_id), daemon=True).start()
     return run_id

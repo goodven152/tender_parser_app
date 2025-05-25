@@ -1,6 +1,5 @@
 fastapi
 uvicorn[standard]
-apscheduler      # планировщик (след. запуск)
+apscheduler
 pydantic
-python-multipart # для загрузки новых json-ов (если нужно)
-git+https://github.com/goodven152/parser_GETenders.git@add_arg_launch
+python-multipart

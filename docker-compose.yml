@@ -1,11 +1,13 @@
 version: '3.9'
 services:
   backend:
-    build: ./backend
+    build:
+      context: .                 #  ←  теперь в контексте и backend/, и config.json
+      dockerfile: backend/Dockerfile
     volumes:
-      - ./config.json:/app/config.json   # редактируемый конфиг
-      - ./logs:/app/logs                # куда писать found_tenders.json и логи
-    ports: [ "8000:8000" ]
+      - ./config.json:/app/config.json     # остаётся, чтобы правки на хосте сразу
+      - ./logs:/app/logs
+    ports: ["8000:8000"]
 
   frontend:
     build: ./frontend
