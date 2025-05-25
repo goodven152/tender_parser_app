@@ -1,8 +1,8 @@
-FROM python:3.12
+FROM python:3.12-slim
 WORKDIR /app
 COPY backend/requirements.txt .
-RUN pip install -r requirements.txt
-COPY backend /app
-COPY shared/config.json /app
-ENTRYPOINT ["bash", "-c"]
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+RUN pip install --no-cache-dir -r requirements.txt
+COPY backend .
+COPY config.json /app/config.json
+ENV PYTHONUNBUFFERED=1
+CMD ["uvicorn","main:app","--host","0.0.0.0","--port","8000"]

@@ -1,5 +1,6 @@
-fastapi==0.111.*
+fastapi
 uvicorn[standard]
-celery[redis]
-psycopg[binary]
-python-json-logger
+apscheduler      # планировщик (след. запуск)
+pydantic
+python-multipart # для загрузки новых json-ов (если нужно)
+git+https://github.com/goodven152/parser_GETenders.git@add_arg_launch
