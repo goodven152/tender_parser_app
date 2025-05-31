@@ -1,5 +1,32 @@
 import json, uuid, subprocess, threading, datetime, os, sqlite3, queue, pathlib
 
+import shutil, json
+LOG_DIR = pathlib.Path("/app/logs")          # общий каталог для всех артефактов
+LOG_DIR.mkdir(exist_ok=True)
+
+# ――― функция-обёртка ―――
+def _reader(proc, run_id):
+    log_lines = []
+    for raw in proc.stdout:
+        line = raw.decode("utf-8", errors="ignore")
+        _current["log"].put(line)            # → WS
+        log_lines.append(line)
+        # ... вычисление progress ...
+    proc.wait()
+
+    # ── сохраняем stdout в runs.db
+    save_run(run_id, _current["started"],
+             datetime.datetime.utcnow().isoformat(),
+             proc.returncode, "".join(log_lines))
+
+    # ── если парсер создал found_tenders.json — переименуем под run_id
+    src = pathlib.Path("/app/found_tenders.json")
+    if src.exists():
+        dst = LOG_DIR / f"{run_id}.json"
+        shutil.move(src, dst)                # теперь логика фронта знает путь
+
+    _current.update({"id": None, "progress": 0})
+
 CONF_PATH = pathlib.Path("/app/config.json")
 DB_PATH   = pathlib.Path("/app/runs.db")
 
@@ -28,26 +55,6 @@ def last_runs(limit=10):
 
 # --- runner ----------------------------------------------------------------
 _current = {"id": None, "progress": 0, "log": queue.Queue()}
-
-def _reader(proc, run_id):
-    log_lines=[]
-    for line in proc.stdout:
-        decoded=line.decode("utf-8", errors="ignore")
-        _current["log"].put(decoded)
-        log_lines.append(decoded)
-        # try to guess % (пример: "Page X/Y")
-        if "/" in decoded:
-            try:
-                x,y=[int(t) for t in decoded.split("/")[:2]]
-                _current["progress"]=int(x*100/y)
-            except: pass
-    proc.wait()
-    save_run(run_id,
-             _current["started"],
-             datetime.datetime.utcnow().isoformat(),
-             proc.returncode,
-             "".join(log_lines))
-    _current.update({"id":None, "progress":0})
 
 def start_run():
     if _current["id"]:                      # уже идёт

@@ -1,10 +1,12 @@
 from fastapi import FastAPI, WebSocket, UploadFile, File
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse,FileResponse, PlainTextResponse
 from apscheduler.schedulers.background import BackgroundScheduler
 import runner, json, datetime, asyncio, pathlib, os
 from apscheduler.triggers.cron import CronTrigger
-
+from starlette.websockets import WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+
+
 
 app = FastAPI()
 
@@ -26,18 +28,42 @@ def run():
 def recent():
     return runner.last_runs()
 
+
+@app.get("/run/{run_id}/log")
+def run_log(run_id: str):
+    r = next((x for x in runner.last_runs(100) if x["id"] == run_id), None)
+    return PlainTextResponse(r["log"] if r else "run_id not found")
+
+@app.get("/run/{run_id}/result")
+def run_result(run_id: str):
+    fp = runner.LOG_DIR / f"{run_id}.json"
+    if fp.exists():
+        return FileResponse(fp, media_type="application/json", filename=f"{run_id}.json")
+    return JSONResponse({"error": "result not found"}, status_code=404)
+
 @app.websocket("/ws")
 async def ws(websocket: WebSocket):
     await websocket.accept()
-    while True:
-        if runner._current["id"]:
-            lines=[]
+    try:
+        while True:
+            # формируем пакет в каждом цикле
+            payload = {
+                "id": runner._current["id"],
+                "progress": runner._current["progress"],
+                "lines": []
+            }
+            # выгребаем накопившиеся строки лога
             while not runner._current["log"].empty():
-                lines.append(runner._current["log"].get())
-            await websocket.send_json({"id": runner._current["id"],
-                                       "progress": runner._current["progress"],
-                                       "lines": lines})
-        await asyncio.sleep(1)
+                payload["lines"].append(runner._current["log"].get())
+
+            # отправляем только если есть активный run или новые строки
+            if payload["id"] or payload["lines"]:
+                await websocket.send_json(payload)
+
+            await asyncio.sleep(1)
+    except WebSocketDisconnect:
+        # клиент закрыл соединение — завершаем цикл без стектрейса
+        pass                             # молча выходим
 
 # -------- CONFIG & KEYWORDS -----------------------------------------------
 CONF_PATH = pathlib.Path("/app/config.json")
