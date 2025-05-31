@@ -1,7 +1,7 @@
 {
   "START_URL": "https://tenders.procurement.gov.ge/public/?lang=ge",
   "PAGE_ROWS": 4,
-  "FUZZY_THRESHOLD": 85,
+  "FUZZY_THRESHOLD": 80,
   "USE_STANZA_LEMMAS": true,
   "KEYWORDS_GEO": [
     "შემთხვევაში პროექტში",
@@ -11,7 +11,7 @@
   "output": "found_tenders.json",
   "max_pages": 3,
   "headless": true,
-  "reset_cache": false,
+  "reset_cache": true,
   "log": "INFO",
   "EXCLUDED_FIRM": "ინგი-77"
 }

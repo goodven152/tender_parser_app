@@ -1,8 +1,49 @@
+# ─── в самом верху файла ───
+import signal
+# …
+
 import json, uuid, subprocess, threading, datetime, os, sqlite3, queue, pathlib
 
 import shutil, json
 LOG_DIR = pathlib.Path("/app/logs")          # общий каталог для всех артефактов
 LOG_DIR.mkdir(exist_ok=True)
+
+
+
+_current = {
+    "id": None,
+    "progress": 0,
+    "log": queue.Queue(),
+    "proc": None,             # ←  держим сам subprocess.Popen
+}
+
+# … _reader без изменений …
+
+def start_run():
+    if _current["id"]:
+        return _current["id"]        # уже работает
+    run_id = str(uuid.uuid4())
+    _current.update({"id": run_id,
+                     "started": datetime.datetime.utcnow().isoformat(),
+                     "progress": 0})
+    cmd = ["python", "-m", "ge_parser_tenders.cli", "--config", str(CONF_PATH)]
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, text=False)
+    _current["proc"] = proc          # сохраняем
+    threading.Thread(target=_reader, args=(proc, run_id), daemon=True).start()
+    return run_id
+
+def stop_run() -> bool:
+    """True, если что-то было остановлено"""
+    proc = _current.get("proc")
+    if proc and proc.poll() is None:        # ещё жив
+        proc.send_signal(signal.SIGINT)     # мягко ^C
+        try:
+            proc.wait(10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        return True
+    return False
 
 # ――― функция-обёртка ―――
 def _reader(proc, run_id):

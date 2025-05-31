@@ -5,8 +5,21 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-/// Admin panel for GETenders parser – live console, history,
-/// JSON result viewer, config & keywords editors.
+/// Flutter-Web админка к парсеру GETenders.
+/// Покрывает API:
+///   • POST /run, POST /run/stop            — запуск / остановка
+///   • WS  /ws                             — live-лог
+///   • GET /runs /next_run /schedule       — история, план, cron
+///   • PUT /schedule                       — изменяет cron
+///   • GET/PUT /config /keywords           — правка конфига и ключевых слов
+///   • GET /run/{id}/log|result            — лог и JSON результата
+
+// ──────────────────────────────────────────────────────────────────────
+
+/// ─────────────────────────────────────────────
+/// 1.  Единственный хард-код для доступа
+const _password = "^tZt)1A6h/(hYXc]/486'4[g";
+
 void main() => runApp(const MyApp());
 
 class MyApp extends StatelessWidget {
@@ -16,11 +29,92 @@ class MyApp extends StatelessWidget {
     title: 'Parser Admin',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.blue),
-    home: const HomePage(),
+    home: const _Gate(), // "роутер" между логином и UI
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+/// 2.  Простейший стейт-фул «роутер»
+class _Gate extends StatefulWidget {
+  const _Gate({super.key});
+  @override
+  State<_Gate> createState() => _GateState();
+}
+
+class _GateState extends State<_Gate> {
+  bool _loggedIn = false;
+  void _onLoginOk() => setState(() => _loggedIn = true);
+
+  @override
+  Widget build(BuildContext context) =>
+      _loggedIn ? const HomePage() : LoginPage(onSuccess: _onLoginOk);
+}
+
+// ─────────────────────────────────────────────
+/// 3.  Страница логина
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key, required this.onSuccess});
+  final VoidCallback onSuccess;
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final _ctrl = TextEditingController();
+  String? _err;
+
+  void _tryLogin() {
+    if (_ctrl.text == _password) {
+      widget.onSuccess();
+    } else {
+      setState(() => _err = 'Неверный пароль');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Center(
+      child: SizedBox(
+        width: 320,
+        child: Card(
+          elevation: 4,
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Admin Login',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _ctrl,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    errorText: _err,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onSubmitted: (_) => _tryLogin(),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _tryLogin,
+                    child: const Text('Enter'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
   @override
@@ -30,7 +124,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   Uri _u(String path) => Uri.parse('http://${Uri.base.host}:8000$path');
 
-  // live-run state
+  // live state via WS
   final _ws = WebSocketChannel.connect(
     Uri.parse('ws://${Uri.base.host}:8000/ws'),
   );
@@ -38,10 +132,11 @@ class _HomePageState extends State<HomePage> {
   double _progress = 0;
   final List<String> _liveLog = [];
 
-  // static data
+  // polled data
   List<Map<String, dynamic>> _runs = [];
   List<String> _keywords = [];
   DateTime? _nextUtc;
+  String _cronStr = "";
 
   Timer? _ticker;
 
@@ -75,8 +170,14 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  // ───────── API helpers ─────────
   Future<void> _refreshAll() async {
-    await Future.wait([_fetchRuns(), _fetchKeywords(), _fetchNextRun()]);
+    await Future.wait([
+      _fetchRuns(),
+      _fetchKeywords(),
+      _fetchNextRun(),
+      _fetchCron(),
+    ]);
   }
 
   Future<void> _fetchRuns() async {
@@ -102,13 +203,19 @@ class _HomePageState extends State<HomePage> {
     final r = await http.get(_u('/next_run'));
     if (r.statusCode == 200) {
       final iso = json.decode(r.body)['next'] as String?;
-      if (iso != null) {
-        setState(() => _nextUtc = DateTime.parse(iso).toLocal());
-      }
+      if (iso != null) setState(() => _nextUtc = DateTime.parse(iso).toLocal());
+    }
+  }
+
+  Future<void> _fetchCron() async {
+    final r = await http.get(_u('/schedule'));
+    if (r.statusCode == 200) {
+      setState(() => _cronStr = json.decode(r.body)['cron']);
     }
   }
 
   Future<void> _triggerRun() async => http.post(_u('/run'));
+  Future<void> _stopRun() async => http.post(_u('/run/stop'));
 
   Future<void> _saveKeywords() async {
     await http.put(
@@ -188,6 +295,44 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _editCron() async {
+    final ctrl = TextEditingController(text: _cronStr);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Edit CRON expression'),
+            content: TextField(controller: ctrl),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+    );
+    if (ok == true) {
+      final res = await http.put(
+        _u('/schedule'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({"cron": ctrl.text}),
+      );
+      if (res.statusCode == 200) {
+        _fetchNextRun();
+        setState(() => _cronStr = ctrl.text);
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Invalid cron: ${res.body}')));
+      }
+    }
+  }
+
+  // ───────── UI ─────────
   @override
   Widget build(BuildContext context) {
     final th = Theme.of(context);
@@ -206,6 +351,14 @@ class _HomePageState extends State<HomePage> {
                   icon: const Icon(Icons.play_arrow),
                   label: const Text('Run now'),
                 ),
+                const SizedBox(width: 8),
+                if (_runId != null) // Stop only when running
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                    onPressed: _stopRun,
+                    icon: const Icon(Icons.stop),
+                    label: const Text('Stop'),
+                  ),
                 const SizedBox(width: 12),
                 FilledButton.icon(
                   onPressed: _editConfig,
@@ -221,11 +374,21 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
             const SizedBox(height: 8),
-            if (_nextUtc != null)
-              Text(
-                'Next run: ${_fmt(_nextUtc!)}',
-                style: th.textTheme.bodyMedium,
-              ),
+            Row(
+              children: [
+                if (_nextUtc != null)
+                  Text(
+                    'Next run: ${_fmt(_nextUtc!)}',
+                    style: th.textTheme.bodyMedium,
+                  ),
+                const SizedBox(width: 12),
+                TextButton.icon(
+                  onPressed: _editCron,
+                  icon: const Icon(Icons.edit_calendar),
+                  label: const Text('Edit schedule'),
+                ),
+              ],
+            ),
 
             if (_runId != null) ...[
               const SizedBox(height: 12),

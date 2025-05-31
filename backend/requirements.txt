@@ -3,3 +3,4 @@ uvicorn[standard]
 apscheduler
 pydantic
 python-multipart
+croniter

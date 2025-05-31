@@ -1,11 +1,11 @@
-from fastapi import FastAPI, WebSocket, UploadFile, File
+from fastapi import FastAPI, WebSocket, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse,FileResponse, PlainTextResponse
 from apscheduler.schedulers.background import BackgroundScheduler
 import runner, json, datetime, asyncio, pathlib, os
 from apscheduler.triggers.cron import CronTrigger
 from starlette.websockets import WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-
+from croniter import croniter, CroniterBadCronError   # pip install croniter
 
 
 app = FastAPI()
@@ -18,6 +18,44 @@ app.add_middleware(
     allow_headers=["*"],                      # и какие заголовки принимать
 )
 scheduler=BackgroundScheduler(); scheduler.start()
+
+
+CRON_FILE = pathlib.Path("/app/cron.txt")
+if not CRON_FILE.exists():
+    CRON_FILE.write_text("0 2 * * *")
+
+def _load_cron() -> str:
+    return CRON_FILE.read_text().strip()
+
+def _update_trigger(expr: str):
+    global _next_trigger
+    _next_trigger = CronTrigger.from_crontab(expr)
+
+_update_trigger(_load_cron())         # инициализация
+
+# ── остановка текущего запуска ────────────────────────────
+@app.post("/run/stop")
+def stop():
+    if runner.stop_run():
+        return {"stopped": True}
+    raise HTTPException(status_code=400, detail="No active run")
+
+
+# ── чтение / изменение cron-строки ────────────────────────
+@app.get("/schedule")
+def get_schedule():
+    return {"cron": _load_cron()}
+
+@app.put("/schedule")
+def set_schedule(body: dict):
+    expr = body.get("cron", "")
+    try:
+        croniter(expr)              # валидация
+    except CroniterBadCronError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    CRON_FILE.write_text(expr)
+    _update_trigger(expr)
+    return {"saved": True}
 
 # -------- ACTIONS ----------------------------------------------------------
 @app.post("/run")
@@ -87,12 +125,6 @@ def kw_update(kw: list[str]):
     cfg["KEYWORDS_GEO"]=kw
     update_config(cfg)
     return {"status":"saved"}
-
-# -------- NEXT SCHEDULE (пример: ежедневно 02:00) -------------------------
-CRON_EXPR = "0 2 * * *"             # «каждый день в 02:00»
-
-# заранее создаём триггер из crontab-строки
-_next_trigger = CronTrigger.from_crontab(CRON_EXPR)
 
 def _calc_next_run():
     # first_fire_time=None → «сейчас»
