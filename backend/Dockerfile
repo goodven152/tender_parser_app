@@ -1,6 +1,29 @@
 FROM python:3.12-slim
 WORKDIR /app
 
+
+# --- system deps -----------------------------------------------------------
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    git \
+    chromium \
+    chromium-driver \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libnspr4 libnss3 libx11-6 libxcomposite1 libxdamage1 \
+    libxrandr2 libgbm1 libxss1 libxtst6 libgtk-3-0 ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+
+
+
+# chrome & driver оказываются в /usr/bin/chromium-browser /usr/bin/chromedriver
+ENV CHROME_BINARY=/usr/bin/chromium-browser
+ENV CHROMEDRIVER=/usr/bin/chromedriver
+ENV PATH="$PATH:/usr/bin"
+
+
 # 1. системный git (для clone)
 RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
