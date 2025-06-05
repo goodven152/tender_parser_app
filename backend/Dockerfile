@@ -1,6 +1,8 @@
 FROM python:3.12-slim
 WORKDIR /app
 
+ARG APP_PASSWORD
+ENV APP_PASSWORD=$APP_PASSWORD
 
 # --- system deps -----------------------------------------------------------
 RUN apt-get update && \
@@ -48,3 +50,5 @@ RUN python -c "import stanza, os; stanza.download('ka')"
 COPY backend .
 ENV PYTHONUNBUFFERED=1
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+
