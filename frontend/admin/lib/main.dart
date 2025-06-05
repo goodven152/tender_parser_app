@@ -18,7 +18,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 /// ─────────────────────────────────────────────
 /// 1.  Единственный хард-код для доступа
-const _password = String.fromEnvironment('PASSWORD_ADMIN');
+const _password = "^tZt)1A6h/(hYXc]/486'4[g";
 
 void main() => runApp(const MyApp());
 

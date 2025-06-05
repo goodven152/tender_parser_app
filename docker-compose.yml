@@ -3,11 +3,7 @@ services:
   backend:
     build:
       context: .                 #  ←  теперь в контексте и backend/, и config.json
-      args:
-        - PASSWORD_ADMIN
       dockerfile: backend/Dockerfile
-    environment:
-      - PASSWORD_ADMIN=${PASSWORD_ADMIN}
     volumes:
       - ./config.json:/app/config.json     # остаётся, чтобы правки на хосте сразу
       - ./logs:/app/logs
