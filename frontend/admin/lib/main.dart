@@ -496,11 +496,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   DataRow _row(Map<String, dynamic> r) {
-    const tzOffset = Duration(hours: 4);
     final started =
-        r['started'] != null ? DateTime.parse(r['started']).toLocal().add(tzOffset) : null;
+        r['started'] != null ? DateTime.parse(r['started']).toLocal() : null;
     final finished =
-        r['finished'] != null ? DateTime.parse(r['finished']).toLocal().add(tzOffset) : null;
+        r['finished'] != null ? DateTime.parse(r['finished']).toLocal() : null;
     final ok = (r['returncode'] as int?) == 0;
     return DataRow(
       onSelectChanged:
