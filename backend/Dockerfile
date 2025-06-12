@@ -34,6 +34,7 @@ ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 \
 # ── копируем готовые библиотеки, chromium и модель ─────────────
 COPY --from=deps /usr/local /usr/local
 COPY --from=deps /usr/bin/chromium* /usr/bin/
+COPY --from=deps /usr/bin/git        /usr/bin/
 COPY --from=deps /usr/lib/chromium /usr/lib/chromium
 COPY --from=deps /root/stanza_resources /root/stanza_resources
 
