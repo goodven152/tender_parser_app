@@ -39,6 +39,7 @@ RUN apt-get update \
 COPY --from=deps /usr/local /usr/local
 COPY --from=deps /usr/bin/chromium* /usr/bin/
 COPY --from=deps /usr/bin/git        /usr/bin/
+COPY --from=deps /usr/bin/chromedriver /usr/bin/
 COPY --from=deps /usr/lib/chromium /usr/lib/chromium
 COPY --from=deps /root/stanza_resources /root/stanza_resources
 
