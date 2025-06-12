@@ -4,3 +4,4 @@ apscheduler
 pydantic
 python-multipart
 croniter
+stanza
