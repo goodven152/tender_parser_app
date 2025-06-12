@@ -31,6 +31,10 @@ ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 \
     REPO_URL=https://github.com/goodven152/parser_GETenders.git \
     REPO_BRANCH=main
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+ 
 # ── копируем готовые библиотеки, chromium и модель ─────────────
 COPY --from=deps /usr/local /usr/local
 COPY --from=deps /usr/bin/chromium* /usr/bin/
