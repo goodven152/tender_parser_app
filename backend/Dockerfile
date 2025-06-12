@@ -45,6 +45,6 @@ COPY backend/ .
 VOLUME ["${APP_DIR}", "/app/logs"]
 
 # ── «ленивый» entrypoint: git pull + pip install при старте ────
-COPY docker-entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY backend/docker-entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["entrypoint.sh"]
