@@ -8,6 +8,7 @@ ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         git tesseract-ocr chromium chromium-driver ca-certificates \
+        chromium=137.*  chromium-driver=137.* \
         fonts-liberation libasound2 libatk-bridge2.0-0 \
         libnspr4 libnss3 libx11-6 libxcomposite1 libxdamage1 \
         libxrandr2 libgbm1 libxss1 libxtst6 libgtk-3-0 && \
