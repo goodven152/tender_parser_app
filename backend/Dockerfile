@@ -21,7 +21,7 @@ ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 \
     APP_DIR=/opt/parser \
     REPO_URL=https://github.com/goodven152/parser_GETenders.git \
     REPO_BRANCH=main \
-    WDM_SKIP=1                       # отключить автоскачивание chromedriver
+    WDM_SKIP=1                       
 
 # ---- системные пакеты (git + браузер + драйвер + либы) ---------
 RUN apt-get update && \
