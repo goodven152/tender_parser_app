@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.6
 ########################  STAGE 1 — deps  ########################
 FROM python:3.12-slim AS deps
 
