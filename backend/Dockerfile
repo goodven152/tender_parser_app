@@ -19,7 +19,7 @@ ENV CHROME_BINARY=/usr/bin/chromium-browser \
     PYTHONUNBUFFERED=1 \
     # ── что и где клонировать ──
     REPO_URL=https://github.com/goodven152/parser_GETenders.git \
-    REPO_BRANCH=add_arg_launch \
+    REPO_BRANCH=main \
     APP_DIR=/opt/parser
 
 # ─── FastAPI-зависимости проекта ───────────────────────────────────
