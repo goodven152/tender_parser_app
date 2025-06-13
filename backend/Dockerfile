@@ -1,48 +1,50 @@
-# syntax=docker/dockerfile:1.6
 FROM python:3.12-slim
 WORKDIR /app
 
-# ─── system deps ───────────────────────────────────────────────────
-RUN apt-get update -qq && \
+
+# --- system deps -----------------------------------------------------------
+RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        git curl ca-certificates \
-        chromium chromium-driver \
-        fonts-liberation \
-        libasound2 libatk-bridge2.0-0 libnspr4 libnss3 libx11-6 \
-        libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxss1 \
-        libxtst6 libgtk-3-0 && \
+    git \
+    chromium \
+    chromium-driver \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libnspr4 libnss3 libx11-6 libxcomposite1 libxdamage1 \
+    libxrandr2 libgbm1 libxss1 libxtst6 libgtk-3-0 ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-ENV CHROME_BINARY=/usr/bin/chromium-browser \
-    CHROMEDRIVER=/usr/bin/chromedriver \
-    PATH="$PATH:/usr/bin" \
-    PYTHONUNBUFFERED=1 \
-    # ── что и где клонировать ──
-    REPO_URL=https://github.com/goodven152/parser_GETenders.git \
-    REPO_BRANCH=main \
-    APP_DIR=/opt/parser
 
-# ─── FastAPI-зависимости проекта ───────────────────────────────────
+
+
+# chrome & driver оказываются в /usr/bin/chromium-browser /usr/bin/chromedriver
+ENV CHROME_BINARY=/usr/bin/chromium-browser
+ENV CHROMEDRIVER=/usr/bin/chromedriver
+ENV PATH="$PATH:/usr/bin"
+
+
+# 1. системный git (для clone)
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. наши зависимости FastAPI и т.п.
 COPY backend/requirements.txt .
-RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# ─── первый clone парсера + его requirements (кешируется) ──────────
-RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
-    git clone --depth 1 --branch ${REPO_BRANCH} ${REPO_URL} ${APP_DIR} && \
-    if [ -f ${APP_DIR}/requirements.txt ]; then \
-        pip install --no-cache-dir -r ${APP_DIR}/requirements.txt ; fi
+# 3. клонируем сам парсер и ставим его requirements
+RUN git clone --branch add_arg_launch \
+    https://github.com/goodven152/parser_GETenders.git /opt/parser \
+    && pip install --no-cache-dir -r /opt/parser/requirements.txt
 
-# ─── грузинская модель Stanza — тоже один раз ──────────────────────
-RUN python - <<'PY'
-import stanza
-stanza.download('ka')
-PY
+# 4. делаем код видимым для Python
+ENV PYTHONPATH="/opt/parser:${PYTHONPATH}"
 
-# ─── копируем ваш API-код ──────────────────────────────────────────
+# 5. (опционально) впервые скачиваем грузинскую модель stanza,
+#    чтобы потом запуск был без сети
+RUN python -c "import stanza, os; stanza.download('ka')"
+
+# 6. копируем наш API-код
 COPY backend .
-
-# ─── запускаемся через entrypoint, который делает git pull + pip ──
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+ENV PYTHONUNBUFFERED=1
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

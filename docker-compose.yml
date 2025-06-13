@@ -1,21 +1,15 @@
+version: '3.9'
 services:
   backend:
     build:
-      context: .
+      context: .                 #  ←  теперь в контексте и backend/, и config.json
       dockerfile: backend/Dockerfile
     volumes:
-      - ./config.json:/app/config.json           # ваши настройки
-      - ./logs:/app/logs                         # логи и JSON-вывод парсера
-      - tender_parser_repo:/opt/parser           # код + модели Stanza
-    environment:
-      - CRON_EXPR=0 2 * * *                      # плановый запуск (пример)
-      - TZ=Asia/Tbilisi
+      - ./config.json:/app/config.json     # остаётся, чтобы правки на хосте сразу
+      - ./logs:/app/logs
     ports: ["8000:8000"]
 
   frontend:
     build: ./frontend
+    ports: [ "8080:80" ]
     depends_on: [ backend ]
-    ports: ["8080:80"]
-
-volumes:
-  tender_parser_repo:
