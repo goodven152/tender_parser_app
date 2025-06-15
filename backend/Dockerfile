@@ -33,7 +33,7 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 3. клонируем сам парсер и ставим его requirements
-RUN git clone --branch  main \
+RUN git clone --branch  tested_branch \
     https://github.com/goodven152/parser_GETenders.git /opt/parser \
     && pip install --no-cache-dir -r /opt/parser/requirements.txt
 
