@@ -13,5 +13,8 @@
   "headless": true,
   "reset_cache": true,
   "log": "INFO",
-  "EXCLUDED_FIRM": "ინგი-77"
+  "EXCLUDED_FIRM": "ინგი-77",
+  "MEMORY_WARNING_THRESHOLD_MB": 1000,
+  "MEMORY_CRITICAL_THRESHOLD_MB": 1500,
+  "GC_INTERVAL_SECONDS": 60
 }
