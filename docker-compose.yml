@@ -1,8 +1,6 @@
 version: '3.9'
 services:
   backend:
-    cpus: "1"  # ограничение по CPU
-    mem_limit: 2.5g  # ограничение по памяти
     build:
       context: .                 #  ←  теперь в контексте и backend/, и config.json
       dockerfile: backend/Dockerfile
