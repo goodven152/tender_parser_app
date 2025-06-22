@@ -1,15 +1,23 @@
-version: '3.9'
+version: '3.9'          # можно и вовсе опустить – в Compose Spec он устарел
 services:
   backend:
     build:
-      context: .                 #  ←  теперь в контексте и backend/, и config.json
+      context: .
       dockerfile: backend/Dockerfile
     volumes:
-      - ./config.json:/app/config.json     # остаётся, чтобы правки на хосте сразу
+      - ./config.json:/app/config.json
       - ./logs:/app/logs
     ports: ["8000:8000"]
 
+    # ───────────────────────────────────────────────
+    deploy:
+      resources:
+        limits:
+          memory: 2g        # жёсткая граница
+        reservations:
+          cpus: '0.80'     # гарантировано пол-ядра (optional)
+
   frontend:
     build: ./frontend
-    ports: [ "8080:80" ]
+    ports: ["8080:80"]
     depends_on: [ backend ]
