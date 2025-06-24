@@ -587,7 +587,7 @@ class _RunDetailsPageState extends State<RunDetailsPage>
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
               padding: const EdgeInsets.all(12),
-              child: Text(
+              child: SelectableText(
                 _log!,
                 style: const TextStyle(fontFamily: 'monospace'),
               ),
@@ -596,7 +596,7 @@ class _RunDetailsPageState extends State<RunDetailsPage>
             ? const Center(child: Text('Result not found'))
             : SingleChildScrollView(
               padding: const EdgeInsets.all(12),
-              child: Text(
+              child: SelectableText(
                 _resultJson!,
                 style: const TextStyle(fontFamily: 'monospace'),
               ),
