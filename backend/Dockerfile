@@ -44,8 +44,10 @@ RUN apt-get update && \
 
 # 1. устанавливаем все wheels (backend + parser)
 COPY --from=build /wheels /tmp/wheels
-RUN pip install --no-index --find-links=/tmp/wheels /tmp/wheels/*.whl && \
-    rm -rf /tmp/wheels
+RUN pip install --no-index --find-links=/tmp/wheels \
+        -r /tmp/backend-requirements.txt \
+        -r /opt/parser/requirements.txt && \
+    rm -rf /tmp/wheels /tmp/backend-requirements.txt
 
 # 2. копируем исходники backend-API
 COPY backend /app
