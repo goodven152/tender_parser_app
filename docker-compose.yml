@@ -13,9 +13,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2g        # жёсткая граница
+          cpus: "1.50"        # контейнер не получит > 1.5 ядра
+          memory: 2g          # и не выйдет за 2 ГБ RAM
         reservations:
-          cpus: '0.80'     # гарантировано пол-ядра (optional)
+          cpus: "0.50"        # оркестратор гарантирует ≥ 0.5 ядра
+          memory: 1g          # и ≥ 1 ГБ RAM
 
   frontend:
     build: ./frontend

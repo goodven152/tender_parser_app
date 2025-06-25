@@ -1,50 +1,66 @@
+# ---------- BUILD STAGE ----------------------------------------------------
+FROM python:3.12-slim AS build
+WORKDIR /build
+
+# 1. system deps (одним RUN слоем)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        git \
+        chromium chromium-driver fonts-liberation \
+        libasound2 libatk-bridge2.0-0 libnspr4 libnss3 \
+        libx11-6 libxcomposite1 libxdamage1 libxrandr2 \
+        libgbm1 libxss1 libxtst6 libgtk-3-0 ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. backend requirements → wheels
+COPY backend/requirements.txt backend-requirements.txt
+RUN pip wheel -r backend-requirements.txt --wheel-dir /wheels
+
+# 3. clone parser and build its wheels
+RUN git clone --branch tested_branch \
+      https://github.com/goodven152/parser_GETenders.git /opt/parser && \
+    pip wheel -r /opt/parser/requirements.txt --wheel-dir /wheels && \
+    rm -rf /opt/parser/.git          # убрать историю, чтобы не тащить в final
+
+# ---------- RUNTIME STAGE --------------------------------------------------
 FROM python:3.12-slim
 WORKDIR /app
 
+# env tweaks для экономии RAM / ускорения pip
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    CHROME_BINARY=/usr/bin/chromium-browser \
+    CHROMEDRIVER=/usr/bin/chromedriver \
+    PATH="$PATH:/usr/bin"
 
-# --- system deps -----------------------------------------------------------
+# system chrome + libs             (дублируем, но slim-слой общий, поэтому кеш)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    git \
-    chromium \
-    chromium-driver \
-    fonts-liberation \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libnspr4 libnss3 libx11-6 libxcomposite1 libxdamage1 \
-    libxrandr2 libgbm1 libxss1 libxtst6 libgtk-3-0 ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
-
-
-
-
-# chrome & driver оказываются в /usr/bin/chromium-browser /usr/bin/chromedriver
-ENV CHROME_BINARY=/usr/bin/chromium-browser
-ENV CHROMEDRIVER=/usr/bin/chromedriver
-ENV PATH="$PATH:/usr/bin"
-
-
-# 1. системный git (для clone)
-RUN apt-get update && apt-get install -y --no-install-recommends git \
+        chromium chromium-driver fonts-liberation \
+        libasound2 libatk-bridge2.0-0 libnspr4 libnss3 \
+        libx11-6 libxcomposite1 libxdamage1 libxrandr2 \
+        libgbm1 libxss1 libxtst6 libgtk-3-0 ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. наши зависимости FastAPI и т.п.
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# 1. устанавливаем все wheels (backend + parser)
+COPY --from=build /wheels /tmp/wheels
+RUN pip install --no-index --find-links=/tmp/wheels /tmp/wheels/*.whl && \
+    rm -rf /tmp/wheels
 
-# 3. клонируем сам парсер и ставим его requirements
-RUN git clone --branch  tested_branch \
-    https://github.com/goodven152/parser_GETenders.git /opt/parser \
-    && pip install --no-cache-dir -r /opt/parser/requirements.txt
-
-# 4. делаем код видимым для Python
+# 2. копируем исходники backend-API
+COPY backend /app
+# 3. копируем исходники парсера (уже без .git)
+COPY --from=build /opt/parser /opt/parser
 ENV PYTHONPATH="/opt/parser:${PYTHONPATH}"
 
-# 5. (опционально) впервые скачиваем грузинскую модель stanza,
-#    чтобы потом запуск был без сети
-RUN python -c "import stanza, os; stanza.download('ka')"
+# 4. заранее скачиваем грузинскую модель stanza (по желанию +~ 400 МБ)
+RUN python - <<'PY'
+import stanza, os
+stanza.download('ka', processors='tokenize,mwt,pos,lemma')
+PY
 
-# 6. копируем наш API-код
-COPY backend .
-ENV PYTHONUNBUFFERED=1
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# HEALTHCHECK (опционально, если в main.py есть /healthz)
+HEALTHCHECK CMD curl -f http://localhost:8000/healthz || exit 1
+
+# --------- ENTRYPOINT ------------------------------------------------------
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
