@@ -3,6 +3,7 @@
   "PAGE_ROWS": 4,
   "FUZZY_THRESHOLD": 90,
   "USE_STANZA_LEMMAS": true,
+  "MAX_DOWNLOAD_THREADS": 4,
   "KEYWORDS_GEO": [
     "სოლისებრი",
     "ურდული",
