@@ -24,19 +24,17 @@ CRON_FILE = pathlib.Path("/app/cron.txt")
 if not CRON_FILE.exists():
     CRON_FILE.write_text("0 2 * * *")
 
-def _load_cron() -> str:
-    return CRON_FILE.read_text().strip()
-
-def _update_trigger(expr: str):
-    global _next_trigger
-    _next_trigger = CronTrigger.from_crontab(expr)
+_cron_expr = CRON_FILE.read_text().strip()
 
 # ── helper to (re)register cron job ────────────────────────────
 def _schedule_job():
-    # id фиксируем, чтобы при повторном вызове заменять существующий
-    scheduler.add_job(runner.start_run, _next_trigger, id="parser_job", replace_existing=True)
+    trig = CronTrigger.from_crontab(_cron_expr, timezone="UTC")
+    scheduler.add_job(runner.start_run,
+                      trig,
+                      id="parser_job",
+                      replace_existing=True)
 
-_update_trigger(_load_cron())         # инициализация
+# первичное планирование
 _schedule_job()
 
 # ── остановка текущего запуска ────────────────────────────
@@ -50,7 +48,7 @@ def stop():
 # ── чтение / изменение cron-строки ────────────────────────
 @app.get("/schedule")
 def get_schedule():
-    return {"cron": _load_cron()}
+    return {"cron": _cron_expr}
 
 @app.put("/schedule")
 def set_schedule(body: dict):
@@ -59,8 +57,9 @@ def set_schedule(body: dict):
         croniter(expr)              # валидация
     except CroniterBadCronError as e:
         raise HTTPException(status_code=422, detail=str(e))
-    CRON_FILE.write_text(expr)
-    _update_trigger(expr)
+    global _cron_expr
+    _cron_expr = expr
+    CRON_FILE.write_text(_cron_expr)
     _schedule_job()                    # пересоздаём джобу под новый cron
     return {"saved": True}
 
@@ -134,8 +133,8 @@ def kw_update(kw: list[str]):
     return {"status":"saved"}
 
 def _calc_next_run():
-    # first_fire_time=None → «сейчас»
-    return _next_trigger.get_next_fire_time(None, datetime.datetime.utcnow())
+    trig = CronTrigger.from_crontab(_cron_expr, timezone="UTC")
+    return trig.get_next_fire_time(None, datetime.datetime.now(datetime.timezone.utc))
 
 @app.get("/next_run")
 def next_run():
