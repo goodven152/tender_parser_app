@@ -31,7 +31,13 @@ def _update_trigger(expr: str):
     global _next_trigger
     _next_trigger = CronTrigger.from_crontab(expr)
 
+# ── helper to (re)register cron job ────────────────────────────
+def _schedule_job():
+    # id фиксируем, чтобы при повторном вызове заменять существующий
+    scheduler.add_job(runner.start_run, _next_trigger, id="parser_job", replace_existing=True)
+
 _update_trigger(_load_cron())         # инициализация
+_schedule_job()
 
 # ── остановка текущего запуска ────────────────────────────
 @app.post("/run/stop")
@@ -55,6 +61,7 @@ def set_schedule(body: dict):
         raise HTTPException(status_code=422, detail=str(e))
     CRON_FILE.write_text(expr)
     _update_trigger(expr)
+    _schedule_job()                    # пересоздаём джобу под новый cron
     return {"saved": True}
 
 # -------- ACTIONS ----------------------------------------------------------

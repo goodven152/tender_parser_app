@@ -66,7 +66,7 @@ def _reader(proc, run_id):
         dst = LOG_DIR / f"{run_id}.json"
         shutil.move(src, dst)                # теперь логика фронта знает путь
 
-    _current.update({"id": None, "progress": 0})
+    _current.update({"id": None, "progress": 0, "proc": None})
 
 CONF_PATH = pathlib.Path("/app/config.json")
 DB_PATH   = pathlib.Path("/app/runs.db")
