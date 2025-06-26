@@ -24,7 +24,7 @@ def start_run():
         return _current["id"]        # уже работает
     run_id = str(uuid.uuid4())
     _current.update({"id": run_id,
-                     "started": datetime.datetime.utcnow().isoformat(),
+                     "started": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                      "progress": 0})
     cmd = ["python", "-m", "ge_parser_tenders.cli", "--config", str(CONF_PATH)]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
@@ -57,7 +57,7 @@ def _reader(proc, run_id):
 
     # ── сохраняем stdout в runs.db
     save_run(run_id, _current["started"],
-             datetime.datetime.utcnow().isoformat(),
+             datetime.datetime.now(datetime.timezone.utc).isoformat(),
              proc.returncode, "".join(log_lines))
 
     # ── если парсер создал found_tenders.json — переименуем под run_id
@@ -95,16 +95,3 @@ def last_runs(limit=10):
         return [dict(zip(cols,r)) for r in cur.fetchall()]
 
 # --- runner ----------------------------------------------------------------
-_current = {"id": None, "progress": 0, "log": queue.Queue()}
-
-def start_run():
-    if _current["id"]:                      # уже идёт
-        return _current["id"]
-    run_id=str(uuid.uuid4())
-    _current.update({"id": run_id,
-                     "started": datetime.datetime.utcnow().isoformat(),
-                     "progress": 0})
-    cmd = ["python", "-m", "ge_parser_tenders.cli", "--config", str(CONF_PATH)]
-    proc=subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    threading.Thread(target=_reader, args=(proc, run_id), daemon=True).start()
-    return run_id
