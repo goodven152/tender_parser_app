@@ -151,12 +151,18 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
       setState(() {
         if (id != null) {
+          // ── активный запуск ───────────
           if (_runId != id) {
             _runId = id;
             _liveLog.clear();
           }
           _progress = (data['progress'] as num).toDouble() / 100.0;
           _liveLog.addAll(lines);
+        } else if (_runId != null) {
+          // ── запуск завершён ───────────
+          _runId = null;
+          _progress = 0;
+          _liveLog.clear();
         }
       });
     });
