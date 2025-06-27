@@ -53,10 +53,12 @@ def _reader(proc, run_id):
     try:
         cfg = json.loads(CONF_PATH.read_text())
         _total_pages = cfg.get("max_pages") or cfg.get("MAX_PAGES")
+        if isinstance(_total_pages, str):
+            _total_pages = int(_total_pages) if _total_pages.isdigit() else None
     except Exception:
         _total_pages = None
 
-    page_re = re.compile(r"Page (\d+)")
+    page_re = re.compile(r"Page\s+(\d+):\s+(\d{1,3})%")
 
     for raw in proc.stdout:
         line = raw.decode("utf-8", errors="ignore")
@@ -67,11 +69,13 @@ def _reader(proc, run_id):
             m = page_re.search(line)
             if m:
                 page_no = int(m.group(1))
-                prc = int(min(page_no / _total_pages * 100, 100))
-                _current["progress"] = prc
+                pct_page = int(m.group(2))
+                overall = ((page_no - 1) + pct_page / 100) / _total_pages * 100
+                _current["progress"] = int(min(overall, 100))
     proc.wait()
 
-    _current["progress"] = 100
+    if _total_pages:
+        _current["progress"] = 100
 
     # ── сохраняем stdout в runs.db
     save_run(run_id, _current["started"],
