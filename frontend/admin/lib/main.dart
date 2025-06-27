@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'cron_editor.dart';
 
 /// Flutter-Web админка к парсеру GETenders.
 /// Покрывает API:
@@ -302,39 +303,20 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _editCron() async {
-    final ctrl = TextEditingController(text: _cronStr);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Edit CRON expression'),
-            content: TextField(controller: ctrl),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Save'),
-              ),
-            ],
-          ),
+    final expr = await showCronEditor(context, initial: _cronStr);
+    if (expr == null) return;
+    final res = await http.put(
+      _u('/schedule'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({"cron": expr}),
     );
-    if (ok == true) {
-      final res = await http.put(
-        _u('/schedule'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({"cron": ctrl.text}),
-      );
-      if (res.statusCode == 200) {
-        _fetchNextRun();
-        setState(() => _cronStr = ctrl.text);
-      } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Invalid cron: ${res.body}')));
-      }
+    if (res.statusCode == 200) {
+      _fetchNextRun();
+      setState(() => _cronStr = expr);
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Invalid cron: ${res.body}')));
     }
   }
 
