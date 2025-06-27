@@ -136,6 +136,7 @@ class _HomePageState extends State<HomePage> {
   // polled data
   List<Map<String, dynamic>> _runs = [];
   List<String> _keywords = [];
+  bool _keywordsDirty = false;
   DateTime? _nextUtc;
   String _cronStr = "";
 
@@ -197,11 +198,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _fetchKeywords() async {
+    if (_keywordsDirty) return;
     final r = await http.get(_u('/keywords'));
     if (r.statusCode == 200) {
       setState(
-        () =>
-            _keywords = List<String>.from(json.decode(r.body)['KEYWORDS_GEO']),
+        () => _keywords = List<String>.from(json.decode(r.body)['KEYWORDS_GEO']),
       );
     }
   }
@@ -230,6 +231,7 @@ class _HomePageState extends State<HomePage> {
       headers: {'Content-Type': 'application/json'},
       body: json.encode(_keywords),
     );
+    _keywordsDirty = false;
     if (mounted) {
       ScaffoldMessenger.of(
         context,
@@ -449,6 +451,7 @@ class _HomePageState extends State<HomePage> {
                   if (n > o) n -= 1;
                   final v = _keywords.removeAt(o);
                   _keywords.insert(n, v);
+                  _keywordsDirty = true;
                 });
               },
               itemBuilder:
@@ -456,7 +459,10 @@ class _HomePageState extends State<HomePage> {
                     key: ValueKey('kw_$i'),
                     title: TextFormField(
                       initialValue: _keywords[i],
-                      onChanged: (v) => _keywords[i] = v,
+                      onChanged: (v) {
+                        _keywords[i] = v;
+                        _keywordsDirty = true;
+                      },
                       decoration: const InputDecoration(
                         isDense: true,
                         border: OutlineInputBorder(),
@@ -488,7 +494,23 @@ class _HomePageState extends State<HomePage> {
         r['started'] != null ? DateTime.parse(r['started']).toLocal() : null;
     final finished =
         r['finished'] != null ? DateTime.parse(r['finished']).toLocal() : null;
-    final ok = (r['returncode'] as int?) == 0;
+    final rc = r['returncode'] as int?;
+    late final IconData icon;
+    late final Color color;
+    late final String label;
+    if (rc == 0) {
+      icon = Icons.check_circle;
+      color = Colors.green;
+      label = 'OK';
+    } else if (rc == null || rc < 0) {
+      icon = Icons.pause_circle_filled;
+      color = Colors.grey;
+      label = 'Stopped';
+    } else {
+      icon = Icons.error;
+      color = Colors.red;
+      label = 'Error';
+    }
     return DataRow(
       onSelectChanged:
           (_) => Navigator.push(
@@ -504,13 +526,9 @@ class _HomePageState extends State<HomePage> {
         DataCell(
           Row(
             children: [
-              Icon(
-                ok ? Icons.check_circle : Icons.error,
-                size: 16,
-                color: ok ? Colors.green : Colors.red,
-              ),
+              Icon(icon, size: 16, color: color),
               const SizedBox(width: 4),
-              Text(ok ? 'OK' : 'Error'),
+              Text(label),
             ],
           ),
         ),
@@ -519,7 +537,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   String _fmt(DateTime dt) =>
-      '${dt.year}-${_2(dt.month)}-${_2(dt.day)} ${_2(dt.hour)}:${_2(dt.minute)}';
+      '${_2(dt.day)}/${_2(dt.month)}/${dt.year} ${_2(dt.hour)}:${_2(dt.minute)}';
   String _2(int n) => n.toString().padLeft(2, '0');
 }
 
