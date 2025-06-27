@@ -39,6 +39,7 @@ def stop_run() -> bool:
     proc = _current.get("proc")
     if proc and proc.poll() is None:        # ещё жив
         proc.send_signal(signal.SIGINT)     # мягко ^C
+        _current["stopped"] = True
         try:
             proc.wait(10)
         except subprocess.TimeoutExpired:
@@ -78,9 +79,10 @@ def _reader(proc, run_id):
         _current["progress"] = 100
 
     # ── сохраняем stdout в runs.db
+    code = None if _current.pop("stopped", False) else proc.returncode
     save_run(run_id, _current["started"],
              datetime.datetime.now(datetime.timezone.utc).isoformat(),
-             proc.returncode, "".join(log_lines))
+             code, "".join(log_lines))
 
     # ── если парсер создал found_tenders.json — переименуем под run_id
     src = pathlib.Path("/app/found_tenders.json")
