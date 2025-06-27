@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'cron_editor.dart';
+import 'dart:html' as html;
 
 /// Flutter-Web админка к парсеру GETenders.
 /// Покрывает API:
@@ -44,7 +45,30 @@ class _Gate extends StatefulWidget {
 
 class _GateState extends State<_Gate> {
   bool _loggedIn = false;
+  static const _sessKey = 'parser_admin_login_ts';
   void _onLoginOk() => setState(() => _loggedIn = true);
+
+  @override
+  void initState() {
+    super.initState();
+    final tsStr = html.window.localStorage[_sessKey];
+    if (tsStr != null) {
+      final ts = int.tryParse(tsStr);
+      if (ts != null && DateTime.now().millisecondsSinceEpoch - ts < 3600 * 1000) {
+        _loggedIn = true;
+      } else {
+        html.window.localStorage.remove(_sessKey);
+      }
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _Gate oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_loggedIn) {
+      html.window.localStorage[_sessKey] = DateTime.now().millisecondsSinceEpoch.toString();
+    }
+  }
 
   @override
   Widget build(BuildContext context) =>
@@ -66,6 +90,8 @@ class _LoginPageState extends State<LoginPage> {
 
   void _tryLogin() {
     if (_ctrl.text == _password) {
+      html.window.localStorage[_sessKey] =
+          DateTime.now().millisecondsSinceEpoch.toString();
       widget.onSuccess();
     } else {
       setState(() => _err = 'Неверный пароль');
