@@ -6,6 +6,7 @@ from apscheduler.triggers.cron import CronTrigger
 from starlette.websockets import WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from croniter import croniter, CroniterBadCronError   # pip install croniter
+from zoneinfo import ZoneInfo
 
 
 app = FastAPI()
@@ -24,11 +25,14 @@ CRON_FILE = pathlib.Path("/app/cron.txt")
 if not CRON_FILE.exists():
     CRON_FILE.write_text("0 2 * * *")
 
-_cron_expr = CRON_FILE.read_text().strip()
+_cron_expr: str = CRON_FILE.read_text().strip()
+
+# определяем часовой пояс сервера (по systemd), по умолчанию Asia/Tbilisi
+SERVER_TZ = ZoneInfo(os.environ.get("SERVER_TZ", "Asia/Tbilisi"))
 
 # ── helper to (re)register cron job ────────────────────────────
 def _schedule_job():
-    trig = CronTrigger.from_crontab(_cron_expr, timezone="UTC")
+    trig = CronTrigger.from_crontab(_cron_expr, timezone=SERVER_TZ)
     scheduler.add_job(runner.start_run,
                       trig,
                       id="parser_job",
@@ -133,8 +137,8 @@ def kw_update(kw: list[str]):
     return {"status":"saved"}
 
 def _calc_next_run():
-    trig = CronTrigger.from_crontab(_cron_expr, timezone="UTC")
-    return trig.get_next_fire_time(None, datetime.datetime.now(datetime.timezone.utc))
+    trig = CronTrigger.from_crontab(_cron_expr, timezone=SERVER_TZ)
+    return trig.get_next_fire_time(None, datetime.datetime.now(SERVER_TZ))
 
 @app.get("/next_run")
 def next_run():
