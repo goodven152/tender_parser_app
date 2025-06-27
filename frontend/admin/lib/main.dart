@@ -21,6 +21,7 @@ import 'dart:html' as html;
 /// ─────────────────────────────────────────────
 /// 1.  Единственный хард-код для доступа
 const _password = "^tZt)1A6h/(hYXc]/486'4[g";
+const _sessKey = 'parser_admin_login_ts';
 
 void main() => runApp(const MyApp());
 
@@ -45,7 +46,6 @@ class _Gate extends StatefulWidget {
 
 class _GateState extends State<_Gate> {
   bool _loggedIn = false;
-  static const _sessKey = 'parser_admin_login_ts';
   void _onLoginOk() => setState(() => _loggedIn = true);
 
   @override
