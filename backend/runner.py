@@ -5,6 +5,7 @@ import signal
 import json, uuid, subprocess, threading, datetime, os, sqlite3, queue, pathlib
 
 import shutil, json
+import re
 LOG_DIR = pathlib.Path("/app/logs")          # общий каталог для всех артефактов
 LOG_DIR.mkdir(exist_ok=True)
 
@@ -48,12 +49,29 @@ def stop_run() -> bool:
 # ――― функция-обёртка ―――
 def _reader(proc, run_id):
     log_lines = []
+    # выясняем планируемое количество страниц
+    try:
+        cfg = json.loads(CONF_PATH.read_text())
+        _total_pages = cfg.get("max_pages") or cfg.get("MAX_PAGES")
+    except Exception:
+        _total_pages = None
+
+    page_re = re.compile(r"Page (\d+)")
+
     for raw in proc.stdout:
         line = raw.decode("utf-8", errors="ignore")
         _current["log"].put(line)            # → WS
         log_lines.append(line)
-        # ... вычисление progress ...
+
+        if _total_pages:
+            m = page_re.search(line)
+            if m:
+                page_no = int(m.group(1))
+                prc = int(min(page_no / _total_pages * 100, 100))
+                _current["progress"] = prc
     proc.wait()
+
+    _current["progress"] = 100
 
     # ── сохраняем stdout в runs.db
     save_run(run_id, _current["started"],

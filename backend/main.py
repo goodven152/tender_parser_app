@@ -104,9 +104,8 @@ async def ws(websocket: WebSocket):
             while not runner._current["log"].empty():
                 payload["lines"].append(runner._current["log"].get())
 
-            # отправляем только если есть активный run или новые строки
-            if payload["id"] or payload["lines"]:
-                await websocket.send_json(payload)
+            # отправляем каждую секунду — фронту нужно знать, что run завершился
+            await websocket.send_json(payload)
 
             await asyncio.sleep(1)
     except WebSocketDisconnect:
